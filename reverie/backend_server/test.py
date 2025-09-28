@@ -11,6 +11,8 @@ import time
 
 from utils import *
 openai.api_key = openai_api_key
+# Set CloseAI API base URL for compatibility
+openai.api_base = openai_api_base
 
 def ChatGPT_request(prompt): 
   """

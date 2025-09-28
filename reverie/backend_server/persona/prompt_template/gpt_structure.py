@@ -12,6 +12,8 @@ import time
 from utils import *
 
 openai.api_key = openai_api_key
+# Set CloseAI API base URL for compatibility
+openai.api_base = openai_api_base
 
 def temp_sleep(seconds=0.1):
   time.sleep(seconds)
@@ -279,6 +281,52 @@ def get_embedding(text, model="text-embedding-ada-002"):
     text = "this is blank"
   return openai.Embedding.create(
           input=[text], model=model)['data'][0]['embedding']
+
+
+def safe_generate_response_chatgpt(prompt, 
+                                   max_tokens=50,
+                                   temperature=0.5,
+                                   repeat=5,
+                                   fail_safe_response="error",
+                                   func_validate=None,
+                                   func_clean_up=None,
+                                   verbose=False): 
+  """
+  使用 ChatGPT 的安全响应生成函数
+  这个函数将旧的 GPT-3 参数转换为 ChatGPT 调用
+  """
+  if verbose: 
+    print("ChatGPT PROMPT:")
+    print(prompt)
+
+  for i in range(repeat): 
+    try:
+      # 使用 ChatGPT API
+      completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=temperature
+      )
+      curr_gpt_response = completion["choices"][0]["message"]["content"].strip()
+      
+      if func_validate and func_validate(curr_gpt_response, prompt=prompt): 
+        return func_clean_up(curr_gpt_response, prompt=prompt) if func_clean_up else curr_gpt_response
+      elif not func_validate:
+        return func_clean_up(curr_gpt_response, prompt=prompt) if func_clean_up else curr_gpt_response
+        
+      if verbose: 
+        print(f"---- repeat count: {i}")
+        print(curr_gpt_response)
+        print("~~~~")
+
+    except Exception as e:
+      if verbose:
+        print(f"Error in attempt {i}: {str(e)}")
+      pass
+  
+  print("FAIL SAFE TRIGGERED") 
+  return fail_safe_response
 
 
 if __name__ == '__main__':
